@@ -3,7 +3,10 @@ import mongoose from "mongoose";
 const documentSchema = new mongoose.Schema({
   title: { type: String, required: true },
   content: { type: Object },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  createdBy: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    email: { type: String },
+  },
   permissions: [
     {
       user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

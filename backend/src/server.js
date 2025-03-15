@@ -6,11 +6,14 @@ import { connectDB } from "./config/database.js";
 import authRoutes from "./routes/auth.js";
 import documentRoutes from "./routes/documents.js";
 import logger from "./utils/logger.js";
+import { ApiError } from "./utils/errors.js";
+import { setupWebSocketServer } from "./config/websocket.js";
 
 dotenv.config();
 
 const app = express();
 const server = createServer(app);
+setupWebSocketServer(server);
 
 // Middleware
 app.use(cors());
@@ -44,7 +47,8 @@ const init = async () => {
 
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, () => {
-      logger.info(`Server running on port ${PORT}`);
+      logger.info(`HTTP Server running on port ${PORT}`);
+      logger.info(`WebSocket Server is ready for connections`);
     });
   } catch (error) {
     logger.error("Failed to initialize server:", error);
