@@ -37,71 +37,51 @@ const Editor = () => {
     }, [document, user]);
 
     useEffect(() => {
-        if (loading || error || !document || !editorRef.current) {
-            console.log('Editor initialization conditions not met:', {
-                loading,
-                error,
-                hasDocument: !!document,
-                hasEditorRef: !!editorRef.current
-            });
-            return;
-        }
+        if (loading || error || !document || !editorRef.current) return;
 
-        // Add a small delay to ensure DOM is ready
-        const initializeEditor = () => {
-            if (!editorRef.current) {
-                console.log('Editor ref lost during initialization');
-                return;
-            }
-
-            const quill = new Quill(editorRef.current, {
-                theme: 'snow',
-                modules: {
-                    cursors: true,
-                    toolbar: [
-                        [{ 'header': [false, 1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'blockquote'],
-                        [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
-                        [{ 'color': [] }, { 'background': [] }],
-                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                        [{ 'align': [] }],
-                        ['link', 'image']
-                    ],
-                    clipboard: {
-                        matchVisual: false
-                    }
-                },
-                readOnly: userPermission?.role === 'viewer'
-            });
-
-            // Custom link handler
-            const toolbar = quill.getModule('toolbar') as any;
-            toolbar.addHandler('link', function (value: boolean) {
-                if (value) {
-                    const range = quill.getSelection();
-                    if (range) {
-                        let url = prompt('Enter link URL:');
-                        if (url) {
-                            // Ensure URL is absolute
-                            if (!/^https?:\/\//i.test(url)) {
-                                url = 'https://' + url;
-                            }
-                            quill.format('link', url);
-                        }
-                    }
-                } else {
-                    quill.format('link', false);
+        const quill = new Quill(editorRef.current, {
+            theme: 'snow',
+            modules: {
+                cursors: true,
+                toolbar: [
+                    [{ 'header': [false, 1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'blockquote'],
+                    [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    [{ 'align': [] }],
+                    ['link', 'image']
+                ],
+                clipboard: {
+                    matchVisual: false
                 }
-            });
+            },
+            readOnly: userPermission?.role === 'viewer'
+        });
 
-            quillRef.current = quill;
-        };
+        // Custom link handler
+        const toolbar = quill.getModule('toolbar') as any;
+        toolbar.addHandler('link', function (value: boolean) {
+            if (value) {
+                const range = quill.getSelection();
+                if (range) {
+                    let url = prompt('Enter link URL:');
+                    if (url) {
+                        // Ensure URL is absolute
+                        if (!/^https?:\/\//i.test(url)) {
+                            url = 'https://' + url;
+                        }
+                        quill.format('link', url);
+                    }
+                }
+            } else {
+                quill.format('link', false);
+            }
+        });
 
-        // Small delay to ensure DOM is fully mounted
-        const timeoutId = setTimeout(initializeEditor, 100);
+        quillRef.current = quill;
 
         return () => {
-            clearTimeout(timeoutId);
             quillRef.current = null;
         };
     }, [document, user]);
