@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDocument } from '../../hooks/useDocument';
 import { useCollaboration } from '../../hooks/useCollaboration';
@@ -9,7 +9,9 @@ import 'quill/dist/quill.snow.css';
 import api from '../../services/api';
 import QuillCursors from 'quill-cursors';
 import { Document, Collaborator } from '../../interfaces/interface';
-
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import MicrophoneButton from './MicrophoneButton';
+import { Loading } from '../common/Loading';
 // Register the cursors module
 Quill.register('modules/cursors', QuillCursors);
 
@@ -23,13 +25,95 @@ const Editor = () => {
     const [selectedRole, setSelectedRole] = useState<'editor' | 'viewer'>('editor');
     const [email, setEmail] = useState('');
     const [shareError, setShareError] = useState('');
-    const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
     const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
+    const [userPermission, setUserPermission] = useState<any | undefined>(undefined);
+    const { isListening, toggleSpeechRecognition } = useSpeechRecognition({ quillRef });
+    const isOwner = document?.createdBy.userId === user?.id;
 
-    const isOwner = document?.createdBy.userId === user?._id;
-    const userPermission = document?.permissions.find(p => p.user === user?._id);
+    useEffect(() => {
+        setUserPermission(document?.permissions?.find(p => p.user === user?.id));
+    }, [document, user]);
+
+    useEffect(() => {
+        if (loading || error || !document || !editorRef.current) return;
+
+        const quill = new Quill(editorRef.current, {
+            theme: 'snow',
+            modules: {
+                cursors: true,
+                toolbar: [
+                    [{ 'header': [false, 1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'blockquote'],
+                    [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    [{ 'align': [] }],
+                    ['link', 'image']
+                ],
+                clipboard: {
+                    matchVisual: false
+                }
+            },
+            readOnly: userPermission?.role === 'viewer'
+        });
+
+        // Custom link handler
+        const toolbar = quill.getModule('toolbar') as any;
+        toolbar.addHandler('link', function (value: boolean) {
+            if (value) {
+                const range = quill.getSelection();
+                if (range) {
+                    let url = prompt('Enter link URL:');
+                    if (url) {
+                        // Ensure URL is absolute
+                        if (!/^https?:\/\//i.test(url)) {
+                            url = 'https://' + url;
+                        }
+                        quill.format('link', url);
+                    }
+                }
+            } else {
+                quill.format('link', false);
+            }
+        });
+
+        quillRef.current = quill;
+
+        return () => {
+            quillRef.current = null;
+        };
+    }, [document, user]);
+
+    const onContentChange = async (content: string) => {
+        try {
+            await api.put(`/documents/${id}/content`, { content });
+        } catch (err) {
+            console.error('Failed to save document:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (!quillRef.current || !onContentChange) return;
+
+        let saveTimeout: ReturnType<typeof setTimeout>;
+
+        const handler = () => {
+            const content = quillRef.current?.root.innerHTML || '';
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                onContentChange(content);
+            }, 1000); // saved after 1 second of inactivity
+        };
+
+        quillRef.current.on('text-change', handler);
+
+        return () => {
+            quillRef.current?.off('text-change', handler);
+            clearTimeout(saveTimeout);
+        };
+    }, [onContentChange]);
 
     const handleShare = async () => {
         try {
@@ -61,96 +145,14 @@ const Editor = () => {
         }
     };
 
-    useEffect(() => {
-        if (loading || error || !document || !editorRef.current) return;
-
-        // Initialize Quill editor
-        const quill = new Quill(editorRef.current, {
-            theme: 'snow',
-            modules: {
-                cursors: true,
-                toolbar: [
-                    [{ 'header': [false, 1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'blockquote'],
-                    [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    [{ 'align': [] }],
-                    ['link', 'image']
-                ],
-                clipboard: {
-                    matchVisual: false
-                }
-            },
-            readOnly: userPermission?.role === 'viewer'
-        });
-
-        // Add custom link handler
-        const toolbar = quill.getModule('toolbar') as any;
-        toolbar.addHandler('link', function (value: boolean) {
-            if (value) {
-                const range = quill.getSelection();
-                if (range) {
-                    let url = prompt('Enter link URL:');
-                    if (url) {
-                        // Ensure URL is absolute
-                        if (!/^https?:\/\//i.test(url)) {
-                            url = 'https://' + url;
-                        }
-                        quill.format('link', url);
-                    }
-                }
-            } else {
-                quill.format('link', false);
-            }
-        });
-
-        quillRef.current = quill;
-
-        return () => {
-            quillRef.current = null;
-        };
-    }, [loading]);
-
     const collaboration = useCollaboration(id || '', quillRef.current);
-
     useEffect(() => {
-        setStatus(collaboration.status);
         setCollaborators(collaboration.users);
-    }, [collaboration.status, collaboration.users]);
+    }, [collaboration.users]);
 
-    const onContentChange = async (content: string) => {
-        try {
-            await api.put(`/documents/${id}/content`, { content });
-        } catch (err) {
-            console.error('Failed to save document:', err);
-        }
-    };
-
-    useEffect(() => {
-        if (!quillRef.current || !onContentChange) return;
-
-        let saveTimeout: ReturnType<typeof setTimeout>;
-
-        const handler = () => {
-            const content = quillRef.current?.root.innerHTML || '';
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                onContentChange(content);
-            }, 1500); // saved after 1.5 seconds of inactivity
-        };
-
-        quillRef.current.on('text-change', handler);
-
-        return () => {
-            quillRef.current?.off('text-change', handler);
-            clearTimeout(saveTimeout);
-        };
-    }, [onContentChange]);
-
-    if (error) return <div className="text-red-500">{error}</div>;
-    if (loading) return <div className="text-gray-500">Loading...</div>;
-    if (!userPermission) return <div className="text-red-500">You don't have permission to access this document</div>;
+    if (error) return <div className="pt-20 text-red-500">{error}</div>;
+    if (loading) return <Loading />;
+    if (!userPermission) return <div className="pt-20 text-red-500">You don't have permission to access this document</div>;
 
     return (
         <div className="h-screen flex flex-col pt-20 pb-10">
@@ -185,6 +187,10 @@ const Editor = () => {
                     )}
                 </div>
                 <div className="flex items-center gap-4">
+                    <MicrophoneButton
+                        isListening={isListening}
+                        onClick={toggleSpeechRecognition}
+                    />
                     {isOwner && (
                         <button
                             onClick={() => {
@@ -235,7 +241,7 @@ const Editor = () => {
                         <div className="flex justify-end gap-2">
                             <button
                                 onClick={handleShare}
-                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer"
                             >
                                 Share
                             </button>
@@ -245,7 +251,7 @@ const Editor = () => {
                                     setEmail('');
                                     setShareError('');
                                 }}
-                                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 cursor-pointer"
                             >
                                 Close
                             </button>

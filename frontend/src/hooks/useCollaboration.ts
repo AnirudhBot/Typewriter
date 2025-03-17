@@ -13,8 +13,6 @@ export const useCollaboration = (documentId: string, quillInstance: Quill | null
     const ydocRef = useRef<Y.Doc | null>(null);
     const providerRef = useRef<WebsocketProvider | null>(null);
     const bindingRef = useRef<QuillBinding | null>(null);
-
-    const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
     const [users, setUsers] = useState<Array<{ id: string; email: string; color: string }>>([]);
 
     useEffect(() => {
@@ -39,10 +37,6 @@ export const useCollaboration = (documentId: string, quillInstance: Quill | null
             name: user.email,
             email: user.email,
             color: userColor,
-        });
-
-        provider.on('status', (event: { status: 'connecting' | 'connected' | 'disconnected' }) => {
-            setStatus(event.status);
         });
 
         provider.awareness.on('change', () => {
@@ -78,7 +72,6 @@ export const useCollaboration = (documentId: string, quillInstance: Quill | null
     }, [documentId, user, quillInstance]);
 
     return {
-        status,
         users,
         provider: providerRef.current,
         ydoc: ydocRef.current,

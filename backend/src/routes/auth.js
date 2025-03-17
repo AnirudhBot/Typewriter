@@ -54,7 +54,10 @@ router.post("/logout", authenticateToken, (req, res) => {
 });
 
 router.get("/me", authenticateToken, (req, res) => {
-  res.json(req.user);
+  res.json({
+    id: req.user._id,
+    email: req.user.email,
+  });
 });
 
 export default router;
