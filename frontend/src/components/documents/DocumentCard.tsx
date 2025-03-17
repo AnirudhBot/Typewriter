@@ -1,4 +1,3 @@
-import React from 'react';
 import { formatDate } from '../../utils/helpers';
 
 const DocumentCard = ({ document, onClick }: { document: any, onClick: () => void }) => {
