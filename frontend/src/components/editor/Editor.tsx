@@ -36,60 +36,72 @@ const Editor = () => {
         setUserPermission(document?.permissions?.find(p => p.user === user?.id));
     }, [document, user]);
 
-    console.log(loading);
-    console.log(error);
-    console.log(document);
-    console.log(editorRef.current);
-
     useEffect(() => {
-        if (loading || error || !document || !editorRef.current) return;
-        console.log("hi");
-        console.log(editorRef?.current);
-        console.log(document);
+        if (loading || error || !document || !editorRef.current) {
+            console.log('Editor initialization conditions not met:', {
+                loading,
+                error,
+                hasDocument: !!document,
+                hasEditorRef: !!editorRef.current
+            });
+            return;
+        }
 
-        const quill = new Quill(editorRef.current, {
-            theme: 'snow',
-            modules: {
-                cursors: true,
-                toolbar: [
-                    [{ 'header': [false, 1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'blockquote'],
-                    [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    [{ 'align': [] }],
-                    ['link', 'image']
-                ],
-                clipboard: {
-                    matchVisual: false
-                }
-            },
-            readOnly: userPermission?.role === 'viewer'
-        });
-
-        // Custom link handler
-        const toolbar = quill.getModule('toolbar') as any;
-        toolbar.addHandler('link', function (value: boolean) {
-            if (value) {
-                const range = quill.getSelection();
-                if (range) {
-                    let url = prompt('Enter link URL:');
-                    if (url) {
-                        // Ensure URL is absolute
-                        if (!/^https?:\/\//i.test(url)) {
-                            url = 'https://' + url;
-                        }
-                        quill.format('link', url);
-                    }
-                }
-            } else {
-                quill.format('link', false);
+        // Add a small delay to ensure DOM is ready
+        const initializeEditor = () => {
+            if (!editorRef.current) {
+                console.log('Editor ref lost during initialization');
+                return;
             }
-        });
 
-        quillRef.current = quill;
+            const quill = new Quill(editorRef.current, {
+                theme: 'snow',
+                modules: {
+                    cursors: true,
+                    toolbar: [
+                        [{ 'header': [false, 1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'blockquote'],
+                        [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                        [{ 'align': [] }],
+                        ['link', 'image']
+                    ],
+                    clipboard: {
+                        matchVisual: false
+                    }
+                },
+                readOnly: userPermission?.role === 'viewer'
+            });
+
+            // Custom link handler
+            const toolbar = quill.getModule('toolbar') as any;
+            toolbar.addHandler('link', function (value: boolean) {
+                if (value) {
+                    const range = quill.getSelection();
+                    if (range) {
+                        let url = prompt('Enter link URL:');
+                        if (url) {
+                            // Ensure URL is absolute
+                            if (!/^https?:\/\//i.test(url)) {
+                                url = 'https://' + url;
+                            }
+                            quill.format('link', url);
+                        }
+                    }
+                } else {
+                    quill.format('link', false);
+                }
+            });
+
+            quillRef.current = quill;
+        };
+
+        // Small delay to ensure DOM is fully mounted
+        const timeoutId = setTimeout(initializeEditor, 100);
 
         return () => {
+            clearTimeout(timeoutId);
             quillRef.current = null;
         };
     }, [document, user]);
