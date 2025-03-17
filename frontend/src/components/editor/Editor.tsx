@@ -36,12 +36,16 @@ const Editor = () => {
         setUserPermission(document?.permissions?.find(p => p.user === user?.id));
     }, [document, user]);
 
-    console.log("hi");
-    console.log(editorRef?.current);
+    console.log(loading);
+    console.log(error);
     console.log(document);
+    console.log(editorRef.current);
 
     useEffect(() => {
         if (loading || error || !document || !editorRef.current) return;
+        console.log("hi");
+        console.log(editorRef?.current);
+        console.log(document);
 
         const quill = new Quill(editorRef.current, {
             theme: 'snow',
