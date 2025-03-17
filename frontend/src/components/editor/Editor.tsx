@@ -31,13 +31,18 @@ const Editor = () => {
     const [userPermission, setUserPermission] = useState<any | undefined>(undefined);
     const { isListening, toggleSpeechRecognition } = useSpeechRecognition({ quillRef });
     const isOwner = document?.createdBy.userId === user?.id;
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         setUserPermission(document?.permissions?.find(p => p.user === user?.id));
     }, [document, user]);
 
     useEffect(() => {
-        if (loading || error || !document || !editorRef.current) return;
+        if (!isMounted || loading || error || !document || !editorRef.current) return;
 
         const quill = new Quill(editorRef.current, {
             theme: 'snow',
@@ -84,7 +89,7 @@ const Editor = () => {
         return () => {
             quillRef.current = null;
         };
-    }, [document, user]);
+    }, [document, user, isMounted]);
 
     const onContentChange = async (content: string) => {
         try {
@@ -150,6 +155,7 @@ const Editor = () => {
         setCollaborators(collaboration.users);
     }, [collaboration.users]);
 
+    if (!isMounted) return null;
     if (error) return <div className="pt-20 text-red-500">{error}</div>;
     if (loading) return <Loading />;
     if (!userPermission) return <div className="pt-20 text-red-500">You don't have permission to access this document</div>;

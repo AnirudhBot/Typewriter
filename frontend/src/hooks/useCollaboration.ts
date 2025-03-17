@@ -26,7 +26,7 @@ export const useCollaboration = (documentId: string, quillInstance: Quill | null
 
         // Create WebSocket provider with user authentication
         const provider = new WebsocketProvider(wsUrl, `document-${documentId}`, ydoc, {
-            params: { userId: user._id },
+            params: { userId: user.id },
             connect: true
         });
         providerRef.current = provider;
