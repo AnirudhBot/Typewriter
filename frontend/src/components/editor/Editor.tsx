@@ -4,22 +4,17 @@ import { useDocument } from '../../hooks/useDocument';
 import { useCollaboration } from '../../hooks/useCollaboration';
 import { useAuth } from '../../hooks/useAuth';
 import CollaboratorsList from './CollaboratorsList';
-import Quill from 'quill';
-import 'quill/dist/quill.snow.css';
 import api from '../../services/api';
-import QuillCursors from 'quill-cursors';
 import { Document, Collaborator } from '../../interfaces/interface';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import MicrophoneButton from './MicrophoneButton';
 import { Loading } from '../common/Loading';
-// Register the cursors module
-Quill.register('modules/cursors', QuillCursors);
 
 const Editor = () => {
     const { id } = useParams();
     const { user } = useAuth();
     const editorRef = useRef<HTMLDivElement>(null);
-    const quillRef = useRef<Quill | null>(null);
+    const quillRef = useRef<any | null>(null);
     const { document, loading, error, setDocument } = useDocument<Document>(id || '');
     const [showShareDialog, setShowShareDialog] = useState(false);
     const [selectedRole, setSelectedRole] = useState<'editor' | 'viewer'>('editor');
@@ -32,6 +27,7 @@ const Editor = () => {
     const { isListening, toggleSpeechRecognition } = useSpeechRecognition({ quillRef });
     const isOwner = document?.createdBy.userId === user?.id;
     const [isMounted, setIsMounted] = useState(false);
+    const [quillLoaded, setQuillLoaded] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
@@ -42,54 +38,70 @@ const Editor = () => {
     }, [document, user]);
 
     useEffect(() => {
-        if (!isMounted || loading || error || !document || !editorRef.current) return;
+        async function loadQuill() {
+            if (typeof window !== 'undefined') {
+                const [Quill, QuillCursors] = await Promise.all([
+                    import('quill'),
+                    import('quill-cursors')
+                ]);
+                await import('quill/dist/quill.snow.css');
 
-        const quill = new Quill(editorRef.current, {
-            theme: 'snow',
-            modules: {
-                cursors: true,
-                toolbar: [
-                    [{ 'header': [false, 1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'blockquote'],
-                    [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    [{ 'align': [] }],
-                    ['link', 'image']
-                ],
-                clipboard: {
-                    matchVisual: false
-                }
-            },
-            readOnly: userPermission?.role === 'viewer'
-        });
-
-        // Custom link handler
-        const toolbar = quill.getModule('toolbar') as any;
-        toolbar.addHandler('link', function (value: boolean) {
-            if (value) {
-                const range = quill.getSelection();
-                if (range) {
-                    let url = prompt('Enter link URL:');
-                    if (url) {
-                        // Ensure URL is absolute
-                        if (!/^https?:\/\//i.test(url)) {
-                            url = 'https://' + url;
-                        }
-                        quill.format('link', url);
-                    }
-                }
-            } else {
-                quill.format('link', false);
+                Quill.default.register('modules/cursors', QuillCursors.default);
+                setQuillLoaded(true);
             }
-        });
+        }
+        loadQuill();
+    }, []);
 
-        quillRef.current = quill;
+    useEffect(() => {
+        async function initQuill() {
+            if (!isMounted || !quillLoaded || loading || error || !document || !editorRef.current) return;
 
-        return () => {
-            quillRef.current = null;
-        };
-    }, [document, user, isMounted]);
+            const Quill = (await import('quill')).default;
+            const quill = new Quill(editorRef.current, {
+                theme: 'snow',
+                modules: {
+                    cursors: true,
+                    toolbar: [
+                        [{ 'header': [false, 1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'blockquote'],
+                        [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                        [{ 'align': [] }],
+                        ['link', 'image']
+                    ],
+                    clipboard: {
+                        matchVisual: false
+                    }
+                },
+                readOnly: userPermission?.role === 'viewer'
+            });
+
+            // Custom link handler
+            const toolbar = quill.getModule('toolbar') as any;
+            toolbar.addHandler('link', function (value: boolean) {
+                if (value) {
+                    const range = quill.getSelection();
+                    if (range) {
+                        let url = prompt('Enter link URL:');
+                        if (url) {
+                            // Ensure URL is absolute
+                            if (!/^https?:\/\//i.test(url)) {
+                                url = 'https://' + url;
+                            }
+                            quill.format('link', url);
+                        }
+                    }
+                } else {
+                    quill.format('link', false);
+                }
+            });
+
+            quillRef.current = quill;
+        }
+        initQuill();
+    }, [document, user, isMounted, quillLoaded]);
 
     const onContentChange = async (content: string) => {
         try {
