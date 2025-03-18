@@ -18,7 +18,7 @@ Quill.register('modules/cursors', QuillCursors);
 const Editor = () => {
     const { id } = useParams();
     const { user } = useAuth();
-    const editorRef = useRef<HTMLDivElement>(null);
+    const [editorRefElement, setEditorRefElement] = useState<HTMLDivElement | null>(null);
     const quillRef = useRef<Quill | null>(null);
     const { document, loading, error, setDocument } = useDocument<Document>(id || '');
     const [showShareDialog, setShowShareDialog] = useState(false);
@@ -37,9 +37,9 @@ const Editor = () => {
     }, [document, user]);
 
     useEffect(() => {
-        if (loading || error || !document || !editorRef.current) return;
+        if (loading || error || !document || !editorRefElement) return;
 
-        const quill = new Quill(editorRef.current, {
+        const quill = new Quill(editorRefElement, {
             theme: 'snow',
             modules: {
                 cursors: true,
@@ -84,7 +84,7 @@ const Editor = () => {
         return () => {
             quillRef.current = null;
         };
-    }, [document, user]);
+    }, [editorRefElement]);
 
     const onContentChange = async (content: string) => {
         try {
@@ -205,7 +205,7 @@ const Editor = () => {
                 </div>
             </div>
             <div className="flex-grow overflow-auto">
-                <div ref={editorRef} />
+                <div ref={setEditorRefElement} />
             </div>
 
             {showShareDialog && (
