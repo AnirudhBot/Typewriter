@@ -31,6 +31,7 @@ const Editor = () => {
     const [userPermission, setUserPermission] = useState<any | undefined>(undefined);
     const { isListening, toggleSpeechRecognition } = useSpeechRecognition({ quillRef });
     const isOwner = document?.createdBy.userId === user?.id;
+    const [quillInitialized, setQuillInitialized] = useState(false);
 
     useEffect(() => {
         setUserPermission(document?.permissions?.find(p => p.user === user?.id));
@@ -80,11 +81,13 @@ const Editor = () => {
         });
 
         quillRef.current = quill;
-
+        setQuillInitialized(true);
+        
         return () => {
             quillRef.current = null;
+            setQuillInitialized(false);
         };
-    }, [editorRefElement]);
+    }, [editorRefElement, document]);
 
     const onContentChange = async (content: string) => {
         try {
@@ -145,9 +148,12 @@ const Editor = () => {
         }
     };
 
-    const collaboration = useCollaboration(id || '', quillRef.current);
+    const collaboration = useCollaboration(id || '', quillInitialized ? quillRef.current : null);
+    
     useEffect(() => {
-        setCollaborators(collaboration.users);
+        if (collaboration.users) {
+            setCollaborators(collaboration.users);
+        }
     }, [collaboration.users]);
 
     if (error) return <div className="pt-20 text-red-500">{error}</div>;
