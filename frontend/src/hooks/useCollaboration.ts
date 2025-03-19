@@ -22,7 +22,7 @@ export const useCollaboration = (documentId: string, quillInstance: Quill | null
         const ydoc = new Y.Doc();
         ydocRef.current = ydoc;
         const ytext = ydoc.getText('quill');
-        const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:1234';
+        const wsUrl = import.meta.env.VITE_WS_URL || 'wss://localhost:1234';
 
         // Create WebSocket provider with user authentication
         const provider = new WebsocketProvider(wsUrl, `document-${documentId}`, ydoc, {
